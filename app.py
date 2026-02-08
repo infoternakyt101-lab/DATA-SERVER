@@ -1444,12 +1444,12 @@ def main():
                     if len(st.session_state['live_logs']) > 100:
                         st.session_state['live_logs'] = st.session_state['live_logs'][-100:]
                 
-            st.session_state['ffmpeg_thread'] = threading.Thread(
-                target=run_ffmpeg, 
-                args=(video_path, stream_key, log_callback, is_shorts, custom_rtmp or None, st.session_state['session_id']), 
-                daemon=True
-            )
-            st.session_state['ffmpeg_thread'].start()
+                st.session_state['ffmpeg_thread'] = threading.Thread(
+                    target=run_ffmpeg, 
+                    args=(video_path, stream_key, log_callback, is_shorts, custom_rtmp or None, st.session_state['session_id']), 
+                    daemon=True
+                )
+                st.session_state['ffmpeg_thread'].start()
                 st.success("🚀 Streaming started!")
                 log_to_database(st.session_state['session_id'], "INFO", f"Streaming started: {video_path}")
                 st.rerun()
