@@ -539,19 +539,21 @@ def get_broadcast_stream_key(service, broadcast_id):
         st.error(f"Error getting broadcast stream key: {e}")
         return None
 
-def run_ffmpeg(video_path, stream_key, log_callback, session_id=None):
+def run_ffmpeg(video_path, stream_key, log_callback, is_shorts=False, custom_rtmp=None, session_id=None):
     """Run FFmpeg for streaming optimized for 4K and excellent quality"""
-    output_url = f"rtmp://a.rtmp.youtube.com/live2/{stream_key}"
+    output_url = custom_rtmp or f"rtmp://a.rtmp.youtube.com/live2/{stream_key}"
     
     # Auto detect video resolution and aspect ratio using ffprobe
     try:
-        probe_cmd = ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", video_path]
+        probe_cmd = ["ffprobe", "-v", "-error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", video_path]
         resolution = subprocess.check_output(probe_cmd).decode('utf-8').strip().split(',')
         width, height = int(resolution[0]), int(resolution[1])
-        is_shorts = height > width
+        # Update is_shorts based on actual resolution if not explicitly set
+        if not is_shorts:
+            is_shorts = height > width
     except:
         width, height = 1920, 1080
-        is_shorts = False
+        # keep is_shorts as passed if probe fails
 
     # Dynamic Bitrate & Buffer based on resolution (up to 4K)
     # 4K needs around 13000k-30000k, 1080p needs 4000k-6000k
@@ -693,7 +695,7 @@ def auto_start_streaming(video_path, stream_key, is_shorts=False, custom_rtmp=No
     # Jalankan FFmpeg di thread terpisah
     st.session_state['ffmpeg_thread'] = threading.Thread(
         target=run_ffmpeg, 
-        args=(video_path, stream_key, is_shorts, log_callback, custom_rtmp or None, session_id), 
+        args=(video_path, stream_key, log_callback, is_shorts, custom_rtmp or None, session_id), 
         daemon=True
     )
     st.session_state['ffmpeg_thread'].start()
@@ -1442,12 +1444,12 @@ def main():
                     if len(st.session_state['live_logs']) > 100:
                         st.session_state['live_logs'] = st.session_state['live_logs'][-100:]
                 
-                st.session_state['ffmpeg_thread'] = threading.Thread(
-                    target=run_ffmpeg, 
-                    args=(video_path, stream_key, is_shorts, log_callback, custom_rtmp or None, st.session_state['session_id']), 
-                    daemon=True
-                )
-                st.session_state['ffmpeg_thread'].start()
+            st.session_state['ffmpeg_thread'] = threading.Thread(
+                target=run_ffmpeg, 
+                args=(video_path, stream_key, log_callback, is_shorts, custom_rtmp or None, st.session_state['session_id']), 
+                daemon=True
+            )
+            st.session_state['ffmpeg_thread'].start()
                 st.success("🚀 Streaming started!")
                 log_to_database(st.session_state['session_id'], "INFO", f"Streaming started: {video_path}")
                 st.rerun()
